@@ -1,23 +1,20 @@
 #!/usr/bin/python
 '''
-DOCSTR
+Script for parsing ig-107 xml file to csv format.
 '''
-#from operator import attrgetter, itemgetter
 import os
 from datetime import datetime
 from datetime import timedelta
 import xml.etree.ElementTree as ET
-import pandas as pd
 
 time_resolution = {"PT60M": timedelta(seconds=3600), "PT15M": timedelta(seconds=900)}
-
 bt2code = {"A25":"CNTC_IVA", "A26":"ATC", "A27":"NTC_final", "A29":"AAC", "B38":"NTC_initial"}
 code2bt = {"CNTC_IVA":"A25", "ATC":"A26", "NTC_final":"A27", "AAC":"A29", "NTC_initial":"B38"}
-
 code2eic = {"SE1":"10Y1001A1001A44P", "SE2":"10Y1001A1001A45N", "SE3":"10Y1001A1001A46L", "SE4":"10Y1001A1001A47J", "NO5":"10Y1001A1001A48H", "NO1A":"10Y1001A1001A64J", "DK1A":"10YDK-1-------AA", "DK1":"10YDK-1--------W", "DK2":"10YDK-2--------M", "FI":"10YFI-1--------U", "NO1":"10YNO-1--------2", "NO2":"10YNO-2--------T", "NO3":"10YNO-3--------J", "NO4":"10YNO-4--------9", "FI_EL":"44Y-00000000161I", "DK1_CO":"45Y0000000000046", "DK1_DE":"45Y0000000000054", "DK2_KO":"45Y0000000000070", "SE4_SP":"46Y000000000003U", "SE4_NB":"46Y000000000004S", "NO2_ND":"50Y73EMZ34CQL9AJ", "NO2_DE":"50YNBFFTWZRAHA3P", "10Y1001A1001A44P":"SE1", "10Y1001A1001A45N":"SE2", "10Y1001A1001A46L":"SE3", "10Y1001A1001A47J":"SE4", "10Y1001A1001A48H":"NO5", "10Y1001A1001A64J":"NO1A", "10YDK-1-------AA":"DK1A", "10YDK-1--------W":"DK1", "10YDK-2--------M":"DK2", "10YFI-1--------U":"FI", "10YNO-1--------2":"NO1", "10YNO-2--------T":"NO2", "10YNO-3--------J":"NO3", "10YNO-4--------9":"NO4", "44Y-00000000161I":"FI_EL", "45Y0000000000046":"DK1_CO", "45Y0000000000054":"DK1_DE", "45Y0000000000070":"DK2_KO", "46Y000000000003U":"SE4_SP", "46Y000000000004S":"SE4_NB", "50Y73EMZ34CQL9AJ":"NO2_ND", "50YNBFFTWZRAHA3P":"NO2_DE"}
 
 
 def parseTimeSeriesFromCapacityDocument(ig107File):
+    # parse all time series defined in implementation guide for ig-107 to a list of dicts.
     ns = {"xmlns":"{urn:iec62325.351:tc57wg16:451-3:capacitydocument:8:0}", "cimp":"{http://www.iec.ch/cimprofile}", "xsi": "{http://www.w3.org/2001/XMLSchema-instance}"}
     tree = ET.parse(ig107File)
     root = tree.getroot()
@@ -53,6 +50,8 @@ def parseTimeSeriesFromCapacityDocument(ig107File):
     
 
 def extract_ig107_files(files, bzb_order=None):
+    # For each ig107 file parse content to csv format.
+    # If a bzb_order is provided, column order in output csv will follow the bzb_order. Although, if a border does not exist in time series data, it will be skipped in csv parsing.
     for  ig107File in files:
         print("Parsing file: " + ig107File + "...")
         ts = parseTimeSeriesFromCapacityDocument(ig107File)
