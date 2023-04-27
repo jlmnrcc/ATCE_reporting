@@ -1,6 +1,7 @@
 #!/usr/bin/python
 '''
 Script for parsing ig-107 xml file to csv format.
+
 '''
 import os
 from datetime import datetime
@@ -46,6 +47,9 @@ code2eic = {"10YDK-1--------W": "DK1",
             "46Y000000000008K": "SE4_SWL",
             "10Y1001A1001A64J":"NO1A",
             "10YDK-1-------AA":"DK1A",
+            "10YSE3A-TEMP--AA":"SE3A",
+            "46Y000000000015N":"SE3-SE4-ACDC",
+            "46Y000000000016L":"SE4-SE3-ACDC",
             "DK1": "10YDK-1--------W",
             "DK2": "10YDK-2--------M",
             "FI": "10YFI-1--------U",
@@ -79,7 +83,10 @@ code2eic = {"10YDK-1--------W": "DK1",
             "SE4_SP": "46Y000000000003U",
             "SE4_SWL": "46Y000000000008K",
             "NO1A":"10Y1001A1001A64J",
-            "DK1A":"10YDK-1-------AA"}
+            "DK1A":"10YDK-1-------AA",
+            "SE3A":"10YSE3A-TEMP--AA",
+            "SE3-SE4-ACDC":"46Y000000000015N",
+            "SE4-SE3-ACDC":"46Y000000000016L"}
 
 
 
@@ -182,7 +189,7 @@ if __name__=="__main__":
     border_order = ["DK1_CO-DK1", "DK1-DK1_CO", "DK1_DE-DK1", "DK1-DK1_DE", "DK1-DK1A", "DK1A-DK1", "DK1-DK2", "DK2-DK1", "DK1A-NO2", "NO2-DK1A", "DK1A-SE3", "SE3-DK1A", "DK2_KO-DK2", "DK2-DK2_KO", "DK2-SE4", "SE4-DK2", "FI_EL-FI", "FI-FI_EL", "FI-SE1", "SE1-FI", "NO1A-NO1", "NO1-NO1A", "NO1A-NO2", "NO2-NO1A", "NO1A-NO5", "NO5-NO1A", "NO1-NO3", "NO3-NO1", "NO1-SE3", "SE3-NO1", "NO2-NO2_ND", "NO2_ND-NO2", "NO2-NO2_NK", "NO2_NK-NO2", "NO2-NO5", "NO5-NO2", "NO3-NO4", "NO4-NO3", "NO3-NO5", "NO5-NO3", "NO3-SE2", "SE2-NO3", "NO4-SE1", "SE1-NO4", "NO4-SE2", "SE2-NO4", "SE3-FI", "FI-SE3", "SE1-SE2", "SE2-SE1", "SE2-SE3", "SE3-SE2", "SE3-SE4", "SE4-SE3", "SE4-SE4_NB", "SE4_NB-SE4", "SE4-SE4_SP", "SE4_SP-SE4"]
     
     try:
-        fDir = "..\\data\\2023w09"
+        fDir = "..\\data\\R5_td"
         
         files = os.listdir(os.getcwd() + "\\"+ fDir)
         files = [fDir + "\\" + f for f in files if f[-3:] == "xml"]
