@@ -1,0 +1,3 @@
+# This file can be used to hold you security token for transparency platform.
+# To get your token, see: https://thesmartinsights.com/how-to-query-data-from-the-entso-e-transparency-platform-using-python/
+tpSecurityToken=insert-token-here
