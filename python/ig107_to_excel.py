@@ -4,6 +4,7 @@ Script for parsing ig-107 xml file to csv format.
 
 '''
 import os
+import zipfile
 from datetime import datetime
 from datetime import timedelta
 import xml.etree.ElementTree as ET
@@ -48,8 +49,8 @@ code2eic = {"10YDK-1--------W": "DK1",
             "10Y1001A1001A64J":"NO1A",
             "10YDK-1-------AA":"DK1A",
             "10YSE3A-TEMP--AA":"SE3A",
-            "46Y000000000015N":"SE3-SE4-ACDC",
-            "46Y000000000016L":"SE4-SE3-ACDC",
+            "46Y000000000015N":"SE3_ACDC",
+            "46Y000000000016L":"SE4_ACDC",
             "DK1": "10YDK-1--------W",
             "DK2": "10YDK-2--------M",
             "FI": "10YFI-1--------U",
@@ -85,8 +86,8 @@ code2eic = {"10YDK-1--------W": "DK1",
             "NO1A":"10Y1001A1001A64J",
             "DK1A":"10YDK-1-------AA",
             "SE3A":"10YSE3A-TEMP--AA",
-            "SE3-SE4-ACDC":"46Y000000000015N",
-            "SE4-SE3-ACDC":"46Y000000000016L"}
+            "SE3_ACDC":"46Y000000000015N",
+            "SE4_ACDC":"46Y000000000016L"}
 
 
 
@@ -129,6 +130,8 @@ def parseTimeSeriesFromCapacityDocument(ig107File):
 def extract_ig107_files(files, bzb_order=None):
     # For each ig107 file parse content to csv format.
     # If a bzb_order is provided, column order in output csv will follow the bzb_order. Although, if a border does not exist in time series data, it will be skipped in csv parsing.
+    outFileNames = []
+    
     for  ig107File in files:
         print("Parsing file: " + ig107File + "...")
         ts = parseTimeSeriesFromCapacityDocument(ig107File)
@@ -141,10 +144,12 @@ def extract_ig107_files(files, bzb_order=None):
             outFileName = ig107File.replace(".xml", "_full_extract.csv")
         else:        
             bzb_list = bzb_order
-            outFileName = ig107File.replace(".xml", "_extract.csv")
+            outFileName = ig107File.replace(".xml", "_public_extract.csv")
             
         field_order = ["NTC_initial", "CNTC_IVA","NTC_final","AAC","ATC"]
-                
+
+        outFileNames.append(outFileName)
+
         with open(outFileName,"w+") as fid:
             fid.write("MTU,Backup,")
             for bzb in bzb_list:
@@ -179,9 +184,22 @@ def extract_ig107_files(files, bzb_order=None):
                             #fid.write(q + ',')
                             fid.write('{:.1f},'.format(q))
                 fid.write("\n")
+    return outFileNames
 
 
-
+def zipFiles(zipFileName, path, fileNames, deleteUnzipped=True):
+    print("Creating zip archive: " + path + "\\" + zipFileName)
+    current_dir = os.getcwd()
+    os.chdir(path)
+    with zipfile.ZipFile(zipFileName, 'w') as zf:
+        for f in fileNames:
+            f_name = f.split('\\')[-1]
+            print('adding ' + f_name + ' to ' + zipFileName)
+            zf.write(f_name)
+            if deleteUnzipped and len(f_name) > 0:
+                os.remove(f_name)
+    os.chdir(current_dir)
+    return
 
 
 if __name__=="__main__":
@@ -189,13 +207,16 @@ if __name__=="__main__":
     border_order = ["DK1_CO-DK1", "DK1-DK1_CO", "DK1_DE-DK1", "DK1-DK1_DE", "DK1-DK1A", "DK1A-DK1", "DK1-DK2", "DK2-DK1", "DK1A-NO2", "NO2-DK1A", "DK1A-SE3", "SE3-DK1A", "DK2_KO-DK2", "DK2-DK2_KO", "DK2-SE4", "SE4-DK2", "FI_EL-FI", "FI-FI_EL", "FI-SE1", "SE1-FI", "NO1A-NO1", "NO1-NO1A", "NO1A-NO2", "NO2-NO1A", "NO1A-NO5", "NO5-NO1A", "NO1-NO3", "NO3-NO1", "NO1-SE3", "SE3-NO1", "NO2-NO2_ND", "NO2_ND-NO2", "NO2-NO2_NK", "NO2_NK-NO2", "NO2-NO5", "NO5-NO2", "NO3-NO4", "NO4-NO3", "NO3-NO5", "NO5-NO3", "NO3-SE2", "SE2-NO3", "NO4-SE1", "SE1-NO4", "NO4-SE2", "SE2-NO4", "SE3-FI", "FI-SE3", "SE1-SE2", "SE2-SE1", "SE2-SE3", "SE3-SE2", "SE3-SE4", "SE4-SE3", "SE4-SE4_NB", "SE4_NB-SE4", "SE4-SE4_SP", "SE4_SP-SE4"]
     
     try:
-        fDir = "..\\data\\R5_td"
-        
+        fDir = "..\\data\\R5NUAT"
         files = os.listdir(os.getcwd() + "\\"+ fDir)
         files = [fDir + "\\" + f for f in files if f[-3:] == "xml"]
                 
-        #extract_ig107_files(files, bzb_order = border_order)
-        extract_ig107_files(files)
+        public_files = extract_ig107_files(files, bzb_order = border_order)
+        zipFiles(fDir.split('\\')[-1]+'_public.zip', fDir, public_files)
+                
+        private_files = extract_ig107_files(files)
+        zipFiles(fDir.split('\\')[-1]+'_for_TSOs.zip', fDir, private_files, deleteUnzipped=False)
+        
     except Exception as errMsg:
         print(errMsg)
     
