@@ -6,3 +6,5 @@
 ## ToDo
 	- generic treatment of market topologies
 	- library of common functions
+	
+	Hej Noa
