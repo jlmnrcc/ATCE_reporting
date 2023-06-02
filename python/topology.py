@@ -1,4 +1,9 @@
-
+'''
+File for handling the mapping between market topologies in flow-based and NTC.
+Flow-based market tolopogy include some virtual bidding zones due to the advanced hybrid coupling scheme.
+On the other hand, NTC market topology includes some virtual bidding zones to handle sum ramping and sum limits.
+In addition, there is a discrepancy between the bidding zones in the NTC mnarket topology defined in NorCap and that which is used by NEMOs and on transparency platform.
+'''
 
 
 
@@ -65,7 +70,7 @@ topology20230511 = {
                         {"name":"DK1-DK1_SK",			"from":"DK1",		"to":"DK1_SK",	"oppositeDirection":"DK1_SK-DK1",			"type":"HvdcDifferentAreaNordicCCR",	"ilf":0.029,	"inFbTopology":True,	"inNtcTopology":False,	"mappedNTCborder":['DK1A-NO2'],         "mappedTPborder":[],    "mappedFBborder":[]},	
                         {"name":"DK1-DK2",				"from":"DK1",		"to":"DK2",		"oppositeDirection":"DK2-DK1",				"type":"parent",						"ilf":None,		"inFbTopology":False,	"inNtcTopology":True,   "mappedNTCborder":[],                   "mappedTPborder":[],    "mappedFBborder":["DK2_SB-DK2"]},	
                         {"name":"DK2_KO-DK2",			"from":"DK2_KO",	"to":"DK2",		"oppositeDirection":"DK2-DK2_KO",			"type":"AcOrDcDifferentCCR",        	"ilf":None,		"inFbTopology":True,	"inNtcTopology":True,	"mappedNTCborder":[],                   "mappedTPborder":[],    "mappedFBborder":[]},	
-                        {"name":"DK2_SB-DK2",			"from":"DK2_SB",	"to":"DK2",		"oppositeDirection":"DK2-DK2_SB",			"type":"HvdcDifferentAreaNordicCCR",	"ilf":None,		"inFbTopology":True,	"inNtcTopology":False,	"mappedNTCborder":[],                   "mappedTPborder":[],    "mappedFBborder":[]},	
+                        {"name":"DK2_SB-DK2",			"from":"DK2_SB",	"to":"DK2",		"oppositeDirection":"DK2-DK2_SB",			"type":"HvdcDifferentAreaNordicCCR",	"ilf":None,		"inFbTopology":True,	"inNtcTopology":False,	"mappedNTCborder":['DK1-DK2'],                   "mappedTPborder":[],    "mappedFBborder":[]},	
                         {"name":"DK2-DK1",				"from":"DK2",		"to":"DK1",		"oppositeDirection":"DK1-DK2",				"type":"parent",						"ilf":None,		"inFbTopology":False,	"inNtcTopology":True,   "mappedNTCborder":[],                   "mappedTPborder":[],    "mappedFBborder":["DK2-DK2_SB"]},	
                         {"name":"DK2-DK2_KO",			"from":"DK2",		"to":"DK2_KO",	"oppositeDirection":"DK2_KO-DK2",			"type":"AcOrDcDifferentCCR",        	"ilf":None,		"inFbTopology":True,	"inNtcTopology":True,	"mappedNTCborder":[],                   "mappedTPborder":[],    "mappedFBborder":[]},	
                         {"name":"DK2-DK2_SB",			"from":"DK2",		"to":"DK2_SB",	"oppositeDirection":"DK2_SB-DK2",			"type":"HvdcDifferentAreaNordicCCR",	"ilf":None,		"inFbTopology":True,	"inNtcTopology":False,	"mappedNTCborder":['DK2-DK1'],          "mappedTPborder":[],    "mappedFBborder":[]},	
