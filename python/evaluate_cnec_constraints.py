@@ -67,10 +67,12 @@ def appendNtcAac(fbdf, atcdf, bzbs, ptdfRelaxationTolerance):
     
     atce_bzb_order = []
     fb_bzb_order = []
+    border_CNECs = []
     
     for brb in bzbs:
         fb_bzb_order.append('z2z_ptdf_' + brb['name'])
         fbdf["z2z_ptdf_"+brb['name']]=fbdf["ptdf_"+brb['from']]-fbdf["ptdf_"+brb['to']]
+        border_CNECs.append('border_CNEC_' + brb['name'])
         
         if len(brb['mappedNTCborder'])>0:
             atce_name = brb['mappedNTCborder'][0]
@@ -97,7 +99,7 @@ def appendNtcAac(fbdf, atcdf, bzbs, ptdfRelaxationTolerance):
     
     for mtu in atcdf['dateTime']:
         print('... ' + mtu.strftime('%Y-%m-%d %H:%M') + ' ...')
-        cnec_idx = [ii for ii in fbdf.index if fbdf["dateTimeUtc"][ii]==mtu]#todo
+        cnec_idx = [ii for ii in fbdf.index if fbdf["dateTimeUtc"][ii]==mtu]
         aacs = np.array([atcdf.loc[atcdf['dateTime']==mtu, (bzb, 'AAC')].values[0] for bzb in atce_bzb_order])
         ntcs = np.array([atcdf.loc[atcdf['dateTime']==mtu, (bzb, 'NTC_final')].values[0] for bzb in atce_bzb_order])
         AAC_ntc_0[cnec_idx] = ntcs * A_zer[:,cnec_idx]
@@ -113,21 +115,43 @@ def appendNtcAac(fbdf, atcdf, bzbs, ptdfRelaxationTolerance):
     return fbdf
  
 
-def appendDAmarketCouplingFlows(path, fbdf):
+def appendDAmarketCouplingFlows(npdf, fbdf):
     # Todo
     '''
     import DA market result (IG-113 or similar)
     Calculate market coupling flows per CNEC by zone-to-slack PTDF times net position
     append to fbdf dataframe and return
     '''
-    # npdf = pd.read_excel(path + '\\' + 'MarketResults_Week_50_20.xlsx', sheet_name='NetPositions')
     
-    # dateTimeUtc = []
-    # for idx,row in npdf.iterrows():
-        # t = datetime.strptime(row['EDD'], format="m/d/YYYY") + datetime.timedelta(hours=row['MTU']-1)
-        # dateTimeUtc.append(pytz.timezone('CET').localize(t).astimezone(pytz.utc))
+    dateTimeUtc = []
+    for idx,row in npdf.iterrows():
+        t = row['EDD']+ datetime.timedelta(hours=row['MTU']-1)
+        # Todo: Localizing timestamp to UTC is not consistent with daylight saving time. This is because GC matrix does not provide a time-stamp - only an MTU number.
+        dateTimeUtc.append(pytz.timezone('CET').localize(t).astimezone(pytz.utc))
     
-    # print(dateTimeUtc)    
+    npdf['dateTimeUtc'] = dateTimeUtc
+    print(npdf['dateTimeUtc'])
+    
+    bz_order = ['_'.join(c.split('_')[1::]) for c in fbdf.columns if c.split('_')[0]=='ptdf']
+    ptdf_columns = [c for c in fbdf.columns if c.split('_')[0]=='ptdf']
+
+    MTUs = fbdf['dateTimeUtc'].unique()
+    fbdb = fbdf.sort_values(by=['dateTimeUtc'])
+    
+    z2sPtdfs = np.array(fbdf.loc[:, ptdf_columns])    
+    MCR_flows = np.zeros((len(fbdf[ptdf_columns[0]])))
+    
+    print('Calculating MCR flows for CNECs...')
+    for mtu in MTUs:
+        print('MTU: ' + datetime.datetime.strftime(mtu, '%Y%m%d %H:%M') + '...')
+        nps = np.array([npdf.loc[npdf['dateTimeUtc']==mtu, bz].values[0] for bz in bz_order])
+        cnec_idx = [ii for ii in fbdf.index if fbdf["dateTimeUtc"][ii]==mtu]
+        MCR_flows[cnec_idx] = np.inner(z2sPtdfs[cnec_idx,:],nps)
+        
+        
+        
+    fbdf['MCR_flows'] = MCR_flows
+    fbdf['ID_ram'] = fbdf['ram'] - fbdf['MCR_flows']
     
     return fbdf
 
@@ -262,18 +286,20 @@ if __name__=="__main__":
     end = atcdf["dateTime"].max() + datetime.timedelta(hours=1)
     
     print('Querying FB data from JAO...')
-    # fbdf = get_fb_data(start, end)
-    # fbdf.to_csv(path + '\\' + 'jao_data.csv')
-    fbdf = pd.read_csv( path + '\\' + "jao_data.csv")
+    fbdf = get_fb_data(start, end)
+    fbdf.to_csv(path + '\\' + 'jao_data.csv')
+    # fbdf = pd.read_csv( path + '\\' + "jao_data.csv")
     fbdf["dateTimeUtc"] = pd.to_datetime(fbdf["dateTimeUtc"], format="%Y-%m-%d %H:%M:00+00:00", utc=True)
     
     fbdf = fbdf.sort_values(by='dateTimeUtc',ascending=True)
     
-    # fbdf = appendDAmarketCouplingFlows(path, fbdf)
+    npdf = pd.read_excel(path + '\\' + 'MarketResults_Week_50_20.xlsx', sheet_name='NetPositions')
     
-    fbdf = appendNtcAac(fbdf, atcdf, bzbs, 0.05)
+    fbdf = appendDAmarketCouplingFlows(npdf, fbdf)
     
-    fbdf = appendMaximumIntradayFlows(fbdf, atcdf)
+    # fbdf = appendNtcAac(fbdf, atcdf, bzbs, 0.05)
+    
+    # fbdf = appendMaximumIntradayFlows(fbdf, atcdf)
     
     
     
