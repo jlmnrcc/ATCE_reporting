@@ -82,9 +82,14 @@ def appendNtcAac(fbdf, atcdf, bzbs, ptdfRelaxationTolerance):
         atce_bzb_order.append(atce_name) 
 
         if not atce_name in atcdf:
-            print("Warning! Bidding zone: " + atce_name + " was not found in ATCE result data. Missing values are treated as 0")
-            atcdf[atce_name, 'AAC'] = [0] * len(atcdf["dateTime"])
-            atcdf[atce_name, 'NTC_final'] = [0] * len(atcdf["dateTime"])
+            try:
+                print("Warning! Bidding zone: " + atce_name + " was not found in ATCE result data. Replacing AACs and NTCs by market coupling flows.")
+                atcdf[atce_name, 'AAC'] = fbdf.loc[fbdf['cnecName']=='Border_CNEC_'+brb['name'], 'MCR_flows'].values
+                atcdf[atce_name, 'NTC_final'] = fbdf.loc[fbdf['cnecName']=='Border_CNEC_'+brb['name'], 'MCR_flows'].values
+            except IndexError:
+                print("Warning! Bidding zone: " + atce_name + " was not found in ATCE result data and not market coupling flows loaded. Missing values are treated as 0")
+                atcdf[atce_name, 'AAC'] = [0] * len(atcdf["dateTime"])
+                atcdf[atce_name, 'NTC_final'] = [0] * len(atcdf["dateTime"])
     
     AAC_ntc_0 = np.array([0]*len(fbdf['id']))
     AAC_ntc_tol = np.array([0]*len(fbdf['id']))
@@ -106,10 +111,11 @@ def appendNtcAac(fbdf, atcdf, bzbs, ptdfRelaxationTolerance):
         AAC_ntc_tol[cnec_idx] = ntcs * A_tol[:,cnec_idx]
         
     fbdf['AAC_ntc_0'] = AAC_ntc_0
-    fbdf['AAC_ntc_tol'] = AAC_ntc_tol
+    # fbdf['AAC_ntc_tol'] = AAC_ntc_tol
     fbdf['AAC_ntc_0_ratio'] = fbdf['AAC_ntc_0'] / fbdf['ram']
-    fbdf['AAC_ntc_tol_ratio'] = fbdf['AAC_ntc_tol'] / fbdf['ram']
-    
+    # fbdf['AAC_ntc_tol_ratio'] = fbdf['AAC_ntc_tol'] / fbdf['ram']
+    fbdf['risk'] = fbdf['ID_ram_ratio']*fbdf['AAC_ntc_0_ratio']#np.power(fbdf['AAC_ntc_0_ratio'],2)
+    fbdf['risk'].loc[fbdf['AAC_ntc_0_ratio']<=1]=0
     print('... done!')
     
     return fbdf
@@ -122,15 +128,6 @@ def appendDAmarketCouplingFlows(npdf, fbdf):
     Calculate market coupling flows per CNEC by zone-to-slack PTDF times net position
     append to fbdf dataframe and return
     '''
-    
-    dateTimeUtc = []
-    for idx,row in npdf.iterrows():
-        t = row['EDD']+ datetime.timedelta(hours=row['MTU']-1)
-        # Todo: Localizing timestamp to UTC is not consistent with daylight saving time. This is because GC matrix does not provide a time-stamp - only an MTU number.
-        dateTimeUtc.append(pytz.timezone('CET').localize(t).astimezone(pytz.utc))
-    
-    npdf['dateTimeUtc'] = dateTimeUtc
-    print(npdf['dateTimeUtc'])
     
     bz_order = ['_'.join(c.split('_')[1::]) for c in fbdf.columns if c.split('_')[0]=='ptdf']
     ptdf_columns = [c for c in fbdf.columns if c.split('_')[0]=='ptdf']
@@ -152,6 +149,7 @@ def appendDAmarketCouplingFlows(npdf, fbdf):
         
     fbdf['MCR_flows'] = MCR_flows
     fbdf['ID_ram'] = fbdf['ram'] - fbdf['MCR_flows']
+    fbdf['ID_ram_ratio'] = 1/(1+np.abs(fbdf['ID_ram']/fbdf['ram']))
     
     return fbdf
 
@@ -200,7 +198,18 @@ def appendMaximumIntradayFlows(fbdf, atcdf):
     for k,m in enumerate(fb_borders):
         A_eq[k,k] = 1
         A_eq[k, borderOrder.index(m['oppositeDirection'])] = 1
-        
+    
+    # border flows to border exchanges:
+    #   Ex_0 = inv(M)*Fm
+    #   M is z2zPTDFs of border CNECs
+    baseCaseExchanges = []
+    borderCnecs = ['Border_CNEC_' + b for b in borderOrder]
+    print(borderCnecs)
+    MTUs = fbdf['dateTimeUtc'].unique()
+    for mtu in MTUs:
+        baseCaseExchanges.append((mtu, [fbdf.loc[ (fbdf['dateTimeUtc']==mtu) & (fbdf['cnecName']==b), 'MCR_flows'].values[0] for b in borderCnecs]))
+      
+    
     for k,m in enumerate(InternalHVDCsBorderDirections):
         n_to = next(iter([n for n in topology.latest_topology['biddingZones'] if n['norCapShortName'] == m['to']]))
         if n_to['virtualBZ']:
@@ -215,15 +224,23 @@ def appendMaximumIntradayFlows(fbdf, atcdf):
     
     # for each cnec: set up objective function, lower/upper bounds and run optimization
     IDmaxFlows=[]
-    IDmaxFlowNPs = []
+    IDmaxDistance = []
+    IDmaxFlow_ratio = []
+    IDmaxFlow_dist_vector = []
+
     for idx, cnec in fbdf.iterrows():
-        if cnec['AAC_ntc_0'] > cnec['ram']:
+        if cnec['risk'] > 0: # cnec['AAC_ntc_0'] > cnec['ram']
             mtu = cnec['dateTimeUtc']
             print(mtu)
             print('  ')
             
+            baseCaseEx = next(iter(x[1] for x in baseCaseExchanges if x[0]==mtu))
+
             # set objective function c.transpose * x:
             c = -1*np.array([max(0.0, cnec[s]) for s in fbdf.columns if 'z2z_ptdf' in s])
+            # c = -1*np.array([ cnec[s] for s in fbdf.columns if 'z2z_ptdf' in s])
+            
+            c_one = np.array([float(cnec[s]**2>0.0) for s in fbdf.columns if 'z2z_ptdf' in s ])
 
             # Set lower upper bounds
             lb_ub = []
@@ -238,9 +255,13 @@ def appendMaximumIntradayFlows(fbdf, atcdf):
                         minNTC = -1 * atcdf.loc[atcdf['dateTime']==mtu, (reverse_m['mappedNTCborder'][0], 'NTC_final')].values[0]
                     except IndexError:
                         print("Warning: Mapped NTC border of bzb " + m['name'] + ' not found. Assigning zero upper and lower bounds.')
-                        maxNTC = 0
-                        minNTC = 0
-                    
+                        # if r['inFbTopology']:
+                            # borderCNECname = 'Border_CNEC_'+r['name']
+                        # else:
+                            # borderCNECname = 'Border_CNEC_'+r['mappedFbBorder'][0]
+                        maxNTC = fbdf.loc[(fbdf['dateTimeUtc']==mtu) & (fbdf['cnecName']=='Border_CNEC_'+m['name']), 'MCR_flows'].values[0] 
+                        minNTC = fbdf.loc[(fbdf['dateTimeUtc']==mtu) & (fbdf['cnecName']=='Border_CNEC_'+m['name']), 'MCR_flows'].values[0] 
+                # maxNTC = min(maxNTC, minNTC+0.5)    
                 lb_ub.append((minNTC, maxNTC))
             
             # run optimization
@@ -250,21 +271,35 @@ def appendMaximumIntradayFlows(fbdf, atcdf):
             if res.fun is None:
                 print(res.message)
                 IDmaxFlows.append(99999)
-                IDmaxFlowNPs.append(None)
+                IDmaxDistance.append(None)
+                IDmaxFlow_ratio.append(None)
+                IDmaxFlow_dist_vector.append(None)
             else:
                 NPs = np.matmul(borderToZoneMap, res.x)
                 if sum(NPs)**2 > 1e-12:
                     print("Warning: Sum of Net positions in max flow calculation is not zero: [mtu][CNEC name]: " + str(mtu), str(cnec['cnecName']))
                     IDmaxFlows.append(99999)
-                    IDmaxFlowNPs.append(None)
+                    IDmaxDistance.append(None)
+                    IDmaxFlow_ratio.append(None)
+                    IDmaxFlow_dist_vector.append(None)
                 else:
                     IDmaxFlows.append(-1*res.fun)
-                    IDmaxFlowNPs.append(NPs)
+                    dist_vector = np.inner(np.diag(c_one),res.x - baseCaseEx)
+                    IDmaxDistance.append(np.sqrt(np.sum(np.square(dist_vector))))
+                    IDmaxFlow_ratio.append(-1*res.fun/cnec['ram'])
+                    IDmaxFlow_dist_vector.append([{fb_borders[k]['name']:d} for k,d in enumerate(dist_vector.tolist())])
         else:
             IDmaxFlows.append(None)
-            IDmaxFlowNPs.append(None)
+            IDmaxDistance.append(None)
+            IDmaxFlow_ratio.append(None)
+            IDmaxFlow_dist_vector.append(None)
     fbdf['IDmaxFlow'] = IDmaxFlows
-
+    fbdf['IDmaxFlow_ratio'] = IDmaxFlow_ratio
+    fbdf['distance_to_IDmaxFlow'] = IDmaxDistance
+    
+    fbdf['IDmaxFlow_dist_vector'] = IDmaxFlow_dist_vector
+    
+    
     return fbdf
 
 
@@ -274,7 +309,7 @@ def appendMaximumIntradayFlows(fbdf, atcdf):
 
 if __name__=="__main__":
     
-    path = "..\\data\\ATCEvalidationToolTestData"
+    path = "..\\data\\2023w21_0p1_relaxation"
     
     bzbs = [b for b in topology.latest_topology["borders"] if b['inFbTopology']]
     
@@ -293,13 +328,22 @@ if __name__=="__main__":
     
     fbdf = fbdf.sort_values(by='dateTimeUtc',ascending=True)
     
-    npdf = pd.read_excel(path + '\\' + 'MarketResults_Week_50_20.xlsx', sheet_name='NetPositions')
+    npdf = pd.read_excel('..\\data\\MarketResults_Week_50_22.xlsx', sheet_name='NetPositions')
+    npdf = npdf.loc[npdf['DOMAIN']=='FB']
+    
+    dateTimeUtc = []
+    for idx,row in npdf.iterrows():
+        t = row['EDD']+ datetime.timedelta(hours=row['MTU']-1)
+        # Todo: Localizing timestamp to UTC is not consistent with daylight saving time. This is because GC matrix does not provide a time-stamp - only an MTU number.
+        dateTimeUtc.append(pytz.timezone('CET').localize(t).astimezone(pytz.utc))
+    
+    npdf['dateTimeUtc'] = dateTimeUtc
     
     fbdf = appendDAmarketCouplingFlows(npdf, fbdf)
     
-    # fbdf = appendNtcAac(fbdf, atcdf, bzbs, 0.05)
+    fbdf = appendNtcAac(fbdf, atcdf, bzbs, 0.05)
     
-    # fbdf = appendMaximumIntradayFlows(fbdf, atcdf)
+    fbdf = appendMaximumIntradayFlows(fbdf, atcdf)
     
     
     
