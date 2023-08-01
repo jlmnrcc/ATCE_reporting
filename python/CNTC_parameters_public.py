@@ -1,17 +1,6 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu May 25 10:27:33 2023
-
-@author: NoaHvidShiv
-"""
-import os
-from shutil import which
 import pandas as pd
-from entsoe import EntsoePandasClient as Entsoe
-import datetime
+import os
 import numpy as np
-
-
 
 def readATCEextracts(folder):
     #Return current entries in path
@@ -27,98 +16,77 @@ def readATCEextracts(folder):
     df["dateTime"] = pd.to_datetime(df['MTU']["MTU"], format="%Y-%m-%dT%H:%MZ", utc=True)
     
     return df
-folder = "..\\data\\2023w18"
+folder = "..\\data\\2023w17"
 df=readATCEextracts(folder)
 
 
+#Splitting column names
 column_names = df[:0].columns.values.tolist()
-c_name=[]
-i_name=[]
+border_name=[]
+value_name=[]
 for i in column_names:
-    c_name.append(i[0])
-    i_name.append(i[1])
+    border_name.append(i[0])
+    value_name.append(i[1])
 
-for i in range(3):
-    i_name[i]=column_names[i]
    
+#List with border zones
+border_name2 = []
+[border_name2.append(item) for item in border_name[3:251] if item not in border_name2]
 
-new_list = []
-[new_list.append(item) for item in c_name[3:251] if item not in new_list]
+#Getting time and backup
+time=pd.DataFrame(df.iloc[:,[0,1,2]].values, columns = ['MTU','CET','Backup'])
 
-mypivot = pd.pivot_table(df, values=c_name[3:253], index=column_names[0:3])
-time=mypivot.index
-
-#time=time.reset_index(inplace=True, level=['MTU','CET','Backup'])
-
-MTU=[]
-CET=[]
-Backup=[]
-for i in range(len(mypivot)):
-    MTU.append(mypivot.index[i][0])
-    CET.append(mypivot.index[i][1])
-    Backup.append(mypivot.index[i][2])
-MTU=np.array(MTU)
-CET=np.array(CET)
-Backup=np.array(Backup)
-time= np.stack([MTU,CET,Backup],axis=1)
-time2 = pd.DataFrame(time, columns = ['MTU','CET','Backup'])
-#time2=time2.set_index(['MTU','CET','Backup'])
-
-
-n = 3
-new_index = pd.RangeIndex(len(time2)*(n+1))
-df2 = pd.DataFrame(np.nan, index=new_index, columns=time2.columns)
-ids = np.arange(len(time))*(n+1)
-df2.loc[ids] = time2.values
+#Adding empty rows so it matches the values length for each hour
+new_index = pd.RangeIndex(len(time)*(3))
+df2 = pd.DataFrame(np.nan, index=new_index, columns=time.columns)
+ids = np.arange(len(time))*(3)
+df2.loc[ids] = time.values
 df2=df2.set_index(['MTU','CET','Backup'])
     
 data=df.drop(column_names[0:3],axis=1)
 
+#Splitting every column into seperate dataframes
+data_split=[]
+[data_split.append(pd.DataFrame(data.iloc[:,i])) for i in range(data.shape[1]-2)]
 
-data2=[]
-for i in range((data.shape[1])-2):
-    if data.columns.values[i][0]==c_name[i+3]:
-        data2.append(data.iloc[:,i:i+1])
-
-data3=[]
-data4=[]
+#Find columns with same borders
+border_id=[]
 for i in range(data.shape[1]-3):
-    if data2[i].columns.values[0][0]!=data2[i+1].columns.values[0][0]:
-        data3.append(i+1)
-data3.append(len(data2))
+    if data_split[i].columns.values[0][0]!=data_split[i+1].columns.values[0][0]:
+        border_id.append(i+1)
+border_id.append(len(data_split))
 
-for i in range(len(data3)):
+#Join dataframes with same borders
+border_list=[]
+
+for i in range(len(border_id)):
     if i==0:
-        data4.append(data2[0:data3[i]])
+        border_list.append(data_split[0:border_id[i]])
     else:
-        data4.append(data2[data3[i-1]:data3[i]])
-
-data5=[]
-for i in range(len(data4)):
-    data5.append(pd.concat(data4[i],axis=1))
-    if data5[i].shape[1]==3:
-        data5[i].insert(0,"NTC_initial", " ")
-
-
-shape=[]
-samlet=[]
-for i in range(len(data5)):
-    shape.append(data5[i].iloc[:,:data5[i].shape[1]].values.reshape(data5[i].shape[1]*data5[i].shape[0],1))
-
-samlet=np.concatenate(shape, axis=1)
-
-ind=[]
-for i in range( 168):
-    ind.append(i_name[3:4])
-    ind.append(i_name[4:5])
-    ind.append(i_name[5:6])
-    ind.append(i_name[6:7])
+        border_list.append(data_split[border_id[i-1]:border_id[i]])
+        
+#Concat dataframes and drop values NTC_initial
+conc_values=[]
+for i in range(len(border_list)):
+    conc_values.append(pd.concat(border_list[i],axis=1))
+    if conc_values[i].shape[1]==4:
+        conc_values[i].drop(conc_values[i].columns[0], axis=1, inplace=True)
 
 
+#reshape dataframes in order for them to fit the index made earlier
+reshape=[]
+[reshape.append(conc_values[i].iloc[:,:conc_values[i].shape[1]].values.reshape(conc_values[i].shape[1]*conc_values[i].shape[0],1)) for i in range(len(conc_values))]
 
-ind=[j for i in ind for j in i]
-res = pd.DataFrame(samlet, index=list(ind), columns=new_list) 
-result =res.set_index(df2.index,append=True)
-result=result.reorder_levels(order=[1,2,3,0])
+#Concatenate all dataframes
+total=np.concatenate(reshape, axis=1)
 
-result.to_csv("output.csv")
+#Index list with value names
+size=int(total.shape[0]/3)
+new_valueList=[]
+for i in range(size):
+    new_valueList.append(value_name[4:7])
+new_valueList=[j for i in new_valueList for j in i]
+
+#Setting time and values names as index for the values in correct order
+result = pd.DataFrame(total, index=list(new_valueList), columns=border_name2).set_index(df2.index,append=True).reorder_levels(order=[1,2,3,0])
+result.to_csv("..\\data\\2023w17\\2023w17_CNTCParameters_public.csv")
