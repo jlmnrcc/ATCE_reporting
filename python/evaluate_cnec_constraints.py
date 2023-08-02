@@ -111,9 +111,7 @@ def appendNtcAac(fbdf, atcdf, bzbs, ptdfRelaxationTolerance):
         AAC_ntc_tol[cnec_idx] = ntcs * A_tol[:,cnec_idx]
         
     fbdf['AAC_ntc_0'] = AAC_ntc_0
-    # fbdf['AAC_ntc_tol'] = AAC_ntc_tol
     fbdf['AAC_ntc_0_ratio'] = fbdf['AAC_ntc_0'] / fbdf['ram']
-    # fbdf['AAC_ntc_tol_ratio'] = fbdf['AAC_ntc_tol'] / fbdf['ram']
     fbdf['risk'] = fbdf['ID_ram_ratio']*fbdf['AAC_ntc_0_ratio']#np.power(fbdf['AAC_ntc_0_ratio'],2)
     fbdf['risk'].loc[fbdf['AAC_ntc_0_ratio']<=1]=0
     print('... done!')
@@ -255,13 +253,9 @@ def appendMaximumIntradayFlows(fbdf, atcdf):
                         minNTC = -1 * atcdf.loc[atcdf['dateTime']==mtu, (reverse_m['mappedNTCborder'][0], 'NTC_final')].values[0]
                     except IndexError:
                         print("Warning: Mapped NTC border of bzb " + m['name'] + ' not found. Assigning zero upper and lower bounds.')
-                        # if r['inFbTopology']:
-                            # borderCNECname = 'Border_CNEC_'+r['name']
-                        # else:
-                            # borderCNECname = 'Border_CNEC_'+r['mappedFbBorder'][0]
                         maxNTC = fbdf.loc[(fbdf['dateTimeUtc']==mtu) & (fbdf['cnecName']=='Border_CNEC_'+m['name']), 'MCR_flows'].values[0] 
                         minNTC = fbdf.loc[(fbdf['dateTimeUtc']==mtu) & (fbdf['cnecName']=='Border_CNEC_'+m['name']), 'MCR_flows'].values[0] 
-                # maxNTC = min(maxNTC, minNTC+0.5)    
+                
                 lb_ub.append((minNTC, maxNTC))
             
             # run optimization
@@ -309,7 +303,7 @@ def appendMaximumIntradayFlows(fbdf, atcdf):
 
 if __name__=="__main__":
     
-    path = "..\\data\\2023w21_0p1_relaxation"
+    path = "..\\data\\ATCEvalidationToolTestData"
     
     bzbs = [b for b in topology.latest_topology["borders"] if b['inFbTopology']]
     
@@ -328,7 +322,7 @@ if __name__=="__main__":
     
     fbdf = fbdf.sort_values(by='dateTimeUtc',ascending=True)
     
-    npdf = pd.read_excel('..\\data\\MarketResults_Week_50_22.xlsx', sheet_name='NetPositions')
+    npdf = pd.read_excel('..\\data\\MarketResults_Week_50_25-1.xlsx', sheet_name='NetPositions')
     npdf = npdf.loc[npdf['DOMAIN']=='FB']
     
     dateTimeUtc = []
@@ -343,7 +337,7 @@ if __name__=="__main__":
     
     fbdf = appendNtcAac(fbdf, atcdf, bzbs, 0.05)
     
-    fbdf = appendMaximumIntradayFlows(fbdf, atcdf)
+    # fbdf = appendMaximumIntradayFlows(fbdf, atcdf)
     
     
     

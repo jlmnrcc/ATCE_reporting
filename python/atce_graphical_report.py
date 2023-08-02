@@ -423,7 +423,7 @@ if __name__=="__main__":
     
     tp_token = getTPtoken("entsoeTransparencyToken.txt")
     
-    folder = "..\\data"
+    folder = "..\\data\\ATCEvalidationToolTestData"
     
     border_directions = ["DK1-DK1_CO", "DK1_CO-DK1", "DK1-DK1_DE", "DK1_DE-DK1", "DK1-DK1A", "DK1A-DK1", "DK1A-NO2", "NO2-DK1A", "DK1A-SE3", "SE3-DK1A", "DK2-DK1", "DK1-DK2", "DK2-DK2_KO", "DK2_KO-DK2", "DK2-SE4", "SE4-DK2", "FI_EL-FI", "FI-FI_EL", "FI-SE1", "SE1-FI", "FI-SE3", "SE3-FI", "NO1-NO1A", "NO1A-NO1", "NO1-NO3", "NO3-NO1", "NO1A-NO5", "NO5-NO1A", "NO1-SE3", "SE3-NO1", "NO1A-NO2", "NO2-NO1A", "NO2-NO2_NK", "NO2_NK-NO2", "NO2_ND-NO2", "NO2-NO2_ND", "NO2-NO5", "NO5-NO2", "NO3-NO4", "NO4-NO3", "NO3-NO5", "NO5-NO3", "NO3-SE2", "SE2-NO3", "NO4-SE1", "SE1-NO4", "NO4-SE2", "SE2-NO4", "SE1-SE2", "SE2-SE1", "SE2-SE3", "SE3-SE2", "SE3-SE4", "SE4-SE3", "SE4-SE4_NB", "SE4_NB-SE4", "SE4-SE4_SP", "SE4_SP-SE4" ]
     bidding_zones = ["DK1", "DK2", "SE1", "SE2", "SE3", "SE4", "NO1", "NO2", "NO3", "NO4", "NO5", "FI"]
