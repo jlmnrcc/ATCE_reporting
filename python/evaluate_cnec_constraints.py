@@ -91,6 +91,20 @@ def appendNtcAac(fbdf, atcdf, bzbs, ptdfRelaxationTolerance):
                 atcdf[atce_name, 'AAC'] = [0] * len(atcdf["dateTime"])
                 atcdf[atce_name, 'NTC_final'] = [0] * len(atcdf["dateTime"])
     
+    # todo: Implemnt generic summation of DcSameAreaNordicCCR:
+    fbdf["z2z_ptdf_SE3_SWL-SE3"] = fbdf["z2z_ptdf_SE3_SWL-SE3"] + fbdf["z2z_ptdf_SE4-SE4_SWL"]
+    fbdf["z2z_ptdf_SE4-SE4_SWL"] = [0] * len(fbdf["z2z_ptdf_SE3_SWL-SE3"])
+    
+    fbdf["z2z_ptdf_SE4_SWL-SE4"] = fbdf["z2z_ptdf_SE4_SWL-SE4"] + fbdf["z2z_ptdf_SE3-SE3_SWL"]
+    fbdf["z2z_ptdf_SE3-SE3_SWL"] = [0] * len(fbdf["z2z_ptdf_SE4_SWL-SE4"])    
+    
+    fbdf["z2z_ptdf_SE3_FS-SE3"] = fbdf["z2z_ptdf_SE3_FS-SE3"] + fbdf["z2z_ptdf_FI-FI_FS"]
+    fbdf["z2z_ptdf_FI-FI_FS"] = [0] * len(fbdf["z2z_ptdf_FI-FI_FS"])
+    
+    fbdf["z2z_ptdf_FI_FS-FI"] = fbdf["z2z_ptdf_FI_FS-FI"] + fbdf["z2z_ptdf_SE3-SE3_FS"]
+    fbdf["z2z_ptdf_SE3-SE3_FS"] = [0] * len(fbdf["z2z_ptdf_SE3-SE3_FS"])
+    
+    
     AAC_ntc_0 = np.array([0]*len(fbdf['id']))
     AAC_ntc_tol = np.array([0]*len(fbdf['id']))
     
@@ -109,10 +123,13 @@ def appendNtcAac(fbdf, atcdf, bzbs, ptdfRelaxationTolerance):
         ntcs = np.array([atcdf.loc[atcdf['dateTime']==mtu, (bzb, 'NTC_final')].values[0] for bzb in atce_bzb_order])
         AAC_ntc_0[cnec_idx] = ntcs * A_zer[:,cnec_idx]
         AAC_ntc_tol[cnec_idx] = ntcs * A_tol[:,cnec_idx]
+
+    # fbdf['AAC_ntc_tol'] = AAC_ntc_tol
+    # fbdf['AAC_ntc_tol_ratio'] = fbdf['AAC_ntc_tol'] / fbdf['ram']
         
     fbdf['AAC_ntc_0'] = AAC_ntc_0
     fbdf['AAC_ntc_0_ratio'] = fbdf['AAC_ntc_0'] / fbdf['ram']
-    fbdf['risk'] = fbdf['ID_ram_ratio']*fbdf['AAC_ntc_0_ratio']#np.power(fbdf['AAC_ntc_0_ratio'],2)
+    fbdf['risk'] = fbdf['ID_ram_ratio']*fbdf['AAC_ntc_0_ratio']
     fbdf['risk'].loc[fbdf['AAC_ntc_0_ratio']<=1]=0
     print('... done!')
     
@@ -303,7 +320,7 @@ def appendMaximumIntradayFlows(fbdf, atcdf):
 
 if __name__=="__main__":
     
-    path = "..\\data\\ATCEvalidationToolTestData"
+    path = "..\\data\\2023w24_TP_reference"
     
     bzbs = [b for b in topology.latest_topology["borders"] if b['inFbTopology']]
     
