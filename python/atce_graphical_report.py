@@ -81,14 +81,12 @@ def get_id_offered_atcs(t_start, t_end, tp_token):
         {"norcapCode":"SE4_SP-SE4", "mappedBorders":[{"EICto":"10Y1001A1001A47J", "EICfrom":"10YPL-AREA-----S"}]},
         {"norcapCode":"DK1-DK1A", "mappedBorders":[{"EICfrom":"10YDK-1--------W", "EICto":"10YNO-2--------T"},{"EICfrom":"10YDK-1--------W", "EICto":"10Y1001A1001A46L"}]},
         {"norcapCode":"DK1A-DK1", "mappedBorders":[{"EICto":"10YDK-1--------W", "EICfrom":"10YNO-2--------T"},{"EICto":"10YDK-1--------W", "EICfrom":"10Y1001A1001A46L"}]},
-        {"norcapCode":"NO1-NO1A", "mappedBorders":[{"EICfrom":"10YNO-1--------2", "EICto":"10YNO-2--------T"}, {"EICfrom":"10YNO-1--------2", "EICto":"10Y1001A1001A48H"}]},
-        {"norcapCode":"NO1A-NO1", "mappedBorders":[{"EICto":"10YNO-1--------2", "EICfrom":"10YNO-2--------T"}, {"EICto":"10YNO-1--------2", "EICfrom":"10Y1001A1001A48H"}]},
         {"norcapCode":"NO2-DK1A", "mappedBorders":[{"EICfrom":"10YNO-2--------T", "EICto":"10YDK-1--------W"}]},
         {"norcapCode":"DK1A-NO2", "mappedBorders":[{"EICto":"10YNO-2--------T", "EICfrom":"10YDK-1--------W"}]},
-        {"norcapCode":"NO2-NO1A", "mappedBorders":[{"EICfrom":"10YNO-2--------T", "EICto":"10YNO-1--------2"}]},
-        {"norcapCode":"NO1A-NO2", "mappedBorders":[{"EICto":"10YNO-2--------T", "EICfrom":"10YNO-1--------2"}]},
-        {"norcapCode":"NO5-NO1A", "mappedBorders":[{"EICfrom":"10Y1001A1001A48H", "EICto":"10YNO-1--------2"}]},
-        {"norcapCode":"NO1A-NO5", "mappedBorders":[{"EICto":"10Y1001A1001A48H", "EICfrom":"10YNO-1--------2"}]},
+        {"norcapCode":"NO2-NO1", "mappedBorders":[{"EICfrom":"10YNO-2--------T", "EICto":"10YNO-1--------2"}]},
+        {"norcapCode":"NO1-NO2", "mappedBorders":[{"EICto":"10YNO-2--------T", "EICfrom":"10YNO-1--------2"}]},
+        {"norcapCode":"NO5-NO1", "mappedBorders":[{"EICfrom":"10Y1001A1001A48H", "EICto":"10YNO-1--------2"}]},        
+        {"norcapCode":"NO1-NO5", "mappedBorders":[{"EICto":"10Y1001A1001A48H", "EICfrom":"10YNO-1--------2"}]},
         {"norcapCode":"DK1A-SE3", "mappedBorders":[{"EICto":"10Y1001A1001A46L", "EICfrom":"10YDK-1--------W"}]},
         {"norcapCode":"SE3-DK1A", "mappedBorders":[{"EICfrom":"10Y1001A1001A46L", "EICto":"10YDK-1--------W"}]}]
     
@@ -425,8 +423,12 @@ if __name__=="__main__":
     
     folder = "..\\data\\ATCEvalidationToolTestData"
     
-    border_directions = ["DK1-DK1_CO", "DK1_CO-DK1", "DK1-DK1_DE", "DK1_DE-DK1", "DK1-DK1A", "DK1A-DK1", "DK1A-NO2", "NO2-DK1A", "DK1A-SE3", "SE3-DK1A", "DK2-DK1", "DK1-DK2", "DK2-DK2_KO", "DK2_KO-DK2", "DK2-SE4", "SE4-DK2", "FI_EL-FI", "FI-FI_EL", "FI-SE1", "SE1-FI", "FI-SE3", "SE3-FI", "NO1-NO1A", "NO1A-NO1", "NO1-NO3", "NO3-NO1", "NO1A-NO5", "NO5-NO1A", "NO1-SE3", "SE3-NO1", "NO1A-NO2", "NO2-NO1A", "NO2-NO2_NK", "NO2_NK-NO2", "NO2_ND-NO2", "NO2-NO2_ND", "NO2-NO5", "NO5-NO2", "NO3-NO4", "NO4-NO3", "NO3-NO5", "NO5-NO3", "NO3-SE2", "SE2-NO3", "NO4-SE1", "SE1-NO4", "NO4-SE2", "SE2-NO4", "SE1-SE2", "SE2-SE1", "SE2-SE3", "SE3-SE2", "SE3-SE4", "SE4-SE3", "SE4-SE4_NB", "SE4_NB-SE4", "SE4-SE4_SP", "SE4_SP-SE4" ]
+    border_directions = ["DK1-DK1_CO", "DK1_CO-DK1", "DK1-DK1_DE", "DK1_DE-DK1", "DK1-DK1A", "DK1A-DK1", "DK1A-NO2", "NO2-DK1A", "DK1A-SE3", "SE3-DK1A", "DK2-DK1", "DK1-DK2", "DK2-DK2_KO", "DK2_KO-DK2", "DK2-SE4", "SE4-DK2", "FI_EL-FI", "FI-FI_EL", "FI-SE1", "SE1-FI", "FI-SE3", "SE3-FI", "NO1-NO3", "NO3-NO1", "NO1-NO5", "NO5-NO1", "NO1-SE3", "SE3-NO1", "NO1-NO2", "NO2-NO1", "NO2-NO2_NK", "NO2_NK-NO2", "NO2_ND-NO2", "NO2-NO2_ND", "NO2-NO5", "NO5-NO2", "NO3-NO4", "NO4-NO3", "NO3-NO5", "NO5-NO3", "NO3-SE2", "SE2-NO3", "NO4-SE1", "SE1-NO4", "NO4-SE2", "SE2-NO4", "SE1-SE2", "SE2-SE1", "SE2-SE3", "SE3-SE2", "SE3-SE4", "SE4-SE3", "SE4-SE4_NB", "SE4_NB-SE4", "SE4-SE4_SP", "SE4_SP-SE4" ]
     bidding_zones = ["DK1", "DK2", "SE1", "SE2", "SE3", "SE4", "NO1", "NO2", "NO3", "NO4", "NO5", "FI"]
+
+    # border_directions = ["DK1-DK1_CO", "DK1_CO-DK1", "DK1-DK1_DE", "DK1_DE-DK1", "DK1-DK1A", "DK1A-DK1", "DK1A-NO2", "NO2-DK1A", "DK1A-SE3", "SE3-DK1A", "DK2-DK1", "DK1-DK2", "DK2-DK2_KO", "DK2_KO-DK2", "DK2-SE4", "SE4-DK2", "FI_EL-FI", "FI-FI_EL", "FI-SE1", "SE1-FI", "FI-SE3", "SE3-FI", "NO1-NO1A", "NO1A-NO1", "NO1-NO3", "NO3-NO1", "NO1A-NO5", "NO5-NO1A", "NO1-SE3", "SE3-NO1", "NO1A-NO2", "NO2-NO1A", "NO2-NO2_NK", "NO2_NK-NO2", "NO2_ND-NO2", "NO2-NO2_ND", "NO2-NO5", "NO5-NO2", "NO3-NO4", "NO4-NO3", "NO3-NO5", "NO5-NO3", "NO3-SE2", "SE2-NO3", "NO4-SE1", "SE1-NO4", "NO4-SE2", "SE2-NO4", "SE1-SE2", "SE2-SE1", "SE2-SE3", "SE3-SE2", "SE3-SE4", "SE4-SE3", "SE4-SE4_NB", "SE4_NB-SE4", "SE4-SE4_SP", "SE4_SP-SE4" ]
+    # bidding_zones = ["DK1", "DK2", "SE1", "SE2", "SE3", "SE4", "NO1", "NO2", "NO3", "NO4", "NO5", "FI"]
+
     
     df = readATCEextracts(folder)
     
