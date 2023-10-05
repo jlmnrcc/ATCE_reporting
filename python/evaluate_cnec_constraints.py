@@ -338,7 +338,8 @@ if __name__=="__main__":
     fbdf["dateTimeUtc"] = pd.to_datetime(fbdf["dateTimeUtc"], format="%Y-%m-%d %H:%M:00+00:00", utc=True)
     
     fbdf = fbdf.sort_values(by='dateTimeUtc',ascending=True)
-    
+
+    #Find MarketResult for current week in Energinets Sharepoint
     npdf = pd.read_excel('..\\data\\MarketResults_Week_50_25-1.xlsx', sheet_name='NetPositions')
     npdf = npdf.loc[npdf['DOMAIN']=='FB']
     
