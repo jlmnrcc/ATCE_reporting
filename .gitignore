@@ -3,3 +3,9 @@ data\*
 *.zip
 *.csv
 *.tex
+*.bak
+*.ppt
+*.pptx
+*.xls
+*.xlsx
+*.xml
