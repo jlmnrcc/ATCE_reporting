@@ -156,7 +156,7 @@ def zipFiles(zipFileName, path, fileNames, deleteUnzipped=True):
 
 if __name__=="__main__":
     
-    path_to_topology = 'C:\\Users\\JakobGlarboMøller\\OneDrive - Nordic RSC\\Dokumenter\\topologies\\'
+    path_to_topology = '..\\topology\\data\\'
     topology_file_name = 'topology_ig107.JSON'
     
     topology_map_name = 'map_ig107-intradayNTC.JSON'
