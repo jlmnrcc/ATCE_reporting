@@ -161,12 +161,12 @@ def bzDurationCurves(df, reference_df, topology, topology_map):
             ref_export_capacity = 0
             for ob in out_borders:
                 mapped_ob = next(( r['key'] for r in topology_map['map'] if r['value'] == ob ),None)
-                if len(mapped_ob)>0:
+                if not mapped_ob is None:
                     ref_export_capacity += r[mapped_ob]
             ref_import_capacity = 0
             for ib in in_borders:
                 mapped_ib = next(( r['key'] for r in topology_map['map'] if r['value'] == ib ),None)
-                if len(mapped_ib)>0:
+                if not mapped_ib is None:
                     ref_import_capacity += r[mapped_ib]
             reference_dur_curve.append(ref_export_capacity + ref_import_capacity)
             reference_dur_curve_exp.append(ref_export_capacity)
