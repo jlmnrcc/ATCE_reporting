@@ -5,10 +5,20 @@ atce_graphical_report
 import os
 import json
 from shutil import which
+import numpy as np
 import pandas as pd
-from entsoe import EntsoePandasClient as Entsoe
-from entsoe import exceptions as ee
-import datetime
+
+import pytz
+from datetime import datetime
+from datetime import timedelta
+import requests
+from requests.adapters import HTTPAdapter, Retry
+import xml.etree.ElementTree as ET
+
+
+# from entsoe import EntsoePandasClient as Entsoe
+# from entsoe import exceptions as ee
+# import datetime
 import matplotlib.pyplot as plt
 
 
@@ -19,7 +29,7 @@ def load_json(fileName:str):
 
 
 def query_border(bz_from, bz_to, t_start, t_end, tp_token):
-    
+    '''
     e = Entsoe(api_key=tp_token, retry_count=20, retry_delay=30)
     
     s = e.query_intraday_offered_capacity(
@@ -28,7 +38,92 @@ def query_border(bz_from, bz_to, t_start, t_end, tp_token):
         start=t_start,
         end=t_end
         )
-     
+    '''
+    
+
+
+    assert(t_start.tz is pytz.UTC)
+    assert(t_end.tz is pytz.UTC)
+    
+
+    session = requests.Session()
+    session.headers.update({'User-Agent': 'Mozilla/5.0'})
+
+    retries = Retry(
+        total=3,
+        backoff_factor=0.1,
+        status_forcelist=[502, 503, 504],
+        allowed_methods={'POST'},
+    )
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+    
+    
+    token = tp_token
+    indomain = bz_to
+    outdomain = bz_from
+    
+    periodStart = t_start
+
+    timeStamps = []
+    quantities = []
+    
+    ns = {"xmlns":"{urn:iec62325.351:tc57wg16:451-3:publicationdocument:7:3}"}
+    time_resolution = {"PT60M": timedelta(seconds=3600), "PT15M": timedelta(seconds=900)}
+    
+    while periodStart<t_end:
+        periodEnd = periodStart + timedelta(days=1)
+        Update_DateAndOrTime = periodStart
+        
+        url = 'https://web-api.tp.entsoe.eu/api?securityToken=' + tp_token \
+        + '&documentType=A31&contract_MarketAgreement.Type=A07&in_Domain=' + indomain \
+        + '&out_Domain=' + outdomain \
+        + '&auction.Type=A01&periodStart=' + periodStart.strftime('%Y%m%d%H%M') \
+        + '&periodEnd=' + periodEnd.strftime('%Y%m%d%H%M') \
+        + '&Update_DateAndOrTime=' + Update_DateAndOrTime.strftime('%Y%m%d%H%M')
+
+
+        
+        
+        # response = requests.get(url)
+        try:
+            response = session.get(url)
+        except Exception as errMsg:
+            print(errMsg)
+            ii = 0
+            while response is None and ii<5:
+                print('HTTP request closed for some reason... Let\'s just forget about that and try one more time...')
+                response = session.get(url)
+                ii += 1
+        
+        if response.status_code:
+            tree = ET.fromstring(response.content)
+                
+            ts = tree.findall(ns["xmlns"] + 'TimeSeries')
+            
+            timeIntervalStart = ts[0].find(ns["xmlns"] + 'Period').find(ns["xmlns"] + 'timeInterval').find(ns["xmlns"] + 'start').text
+            timeIntervalResolution = ts[0].find(ns["xmlns"] + 'Period').find(ns["xmlns"] + 'resolution').text
+
+            t_start = datetime.strptime(timeIntervalStart, "%Y-%m-%dT%H:%MZ")
+            resolution = time_resolution[timeIntervalResolution]
+            
+            points = ts[0].find(ns["xmlns"] + 'Period').findall(ns["xmlns"] + 'Point')
+            
+            for p in points:
+                position = int(p.find(ns["xmlns"] + 'position').text)
+                quantity = float(p.find(ns["xmlns"] + 'quantity').text)
+                
+                timeStamps.append(t_start + resolution*(position-1))
+                quantities.append(quantity)
+            
+        periodStart = periodStart + timedelta(days=1)
+        response = None
+    
+    # end while periodStart<t_end
+        
+    s = pd.DataFrame(quantities, index=timeStamps)
+
+    session.close()
+    
     return s
 
 
@@ -37,10 +132,11 @@ def get_id_offered_atcs(t_start, t_end, tp_token, topology):
 
     bzb_map = []
     for b in topology['biddingZoneBorders']:
-        eic_from = next( (z['eic'] for z in topology['biddingZones'] if z['shortName']==b['from']) ,None )
-        eic_to = next( (z['eic'] for z in topology['biddingZones'] if z['shortName']==b['to']) ,None )
-        a = {'norcapCode': b['name'], 'mappedBorders':[ { "EICfrom": eic_from,"EICto": eic_to } ]}
-        bzb_map.append(a)
+        if not b['type']=='lineset':
+            eic_from = next( (z['eic'] for z in topology['biddingZones'] if z['shortName']==b['from']) ,None )
+            eic_to = next( (z['eic'] for z in topology['biddingZones'] if z['shortName']==b['to']) ,None )
+            a = {'norcapCode': b['name'], 'mappedBorders':[ { "EICfrom": eic_from,"EICto": eic_to } ]}
+            bzb_map.append(a)
     
     
     df = pd.DataFrame()
@@ -51,15 +147,19 @@ def get_id_offered_atcs(t_start, t_end, tp_token, topology):
             try:
                 se = query_border(mb["EICfrom"], mb["EICto"], t_start, t_end, tp_token)
                 df[bzb["norcapCode"]] = se                
-            except ee.NoMatchingDataError:
-                print("NoMatchingDataError: Border capacity query for " + bzb['norcapCode'] + " did not return any result.")
-                not_found.append(bzb['norcapCode'])
+            # except ee.NoMatchingDataError:
+                # print("NoMatchingDataError: Border capacity query for " + bzb['norcapCode'] + " did not return any result.")
+                # not_found.append(bzb['norcapCode'])
             except IndexError:
                 print("KeyError: Border capacity query for " + bzb['norcapCode'] + " did not return any result.")
                 not_found.append(bzb['norcapCode'])
+            except Exception as errMsg:
+                print(errMsg)
         
 
     return df
+
+
 
 
 def readATCEextracts(folder):
@@ -67,10 +167,12 @@ def readATCEextracts(folder):
     # files = [f for f in files if "extract.csv" in f]   
     files = [f for f in files if ".csv" in f]   
     
-    df = pd.read_csv(folder + "\\" + files[0], header=[0, 1], sep=";")
+    seperator = ','
+    
+    df = pd.read_csv(folder + "\\" + files[0], header=[0, 1], sep=seperator)
     if len(files)>1:
         for file in files[1::]:
-            df = pd.concat([df, pd.read_csv(folder + "\\" + file, header=[0, 1], sep=";")])
+            df = pd.concat([df, pd.read_csv(folder + "\\" + file, header=[0, 1], sep=seperator)])
     
     df["dateTime"] = pd.to_datetime(df["MTU"]["MTU"], format="%Y-%m-%dT%H:%MZ", utc=True)
     
@@ -162,17 +264,20 @@ def bzDurationCurves(df, reference_df, topology, topology_map):
             for ob in out_borders:
                 mapped_ob = next(( r['key'] for r in topology_map['map'] if r['value'] == ob ),None)
                 if not mapped_ob is None:
-                    ref_export_capacity += r[mapped_ob]
+                    ref_export_capacity += np.float64(r[mapped_ob])
             ref_import_capacity = 0
             for ib in in_borders:
                 mapped_ib = next(( r['key'] for r in topology_map['map'] if r['value'] == ib ),None)
                 if not mapped_ib is None:
-                    ref_import_capacity += r[mapped_ib]
+                    ref_import_capacity += np.float64(r[mapped_ib])
+
             reference_dur_curve.append(ref_export_capacity + ref_import_capacity)
             reference_dur_curve_exp.append(ref_export_capacity)
             reference_dur_curve_imp.append(ref_import_capacity)
 
         dur_curve = sorted(dur_curve)
+        
+        reference_dur_curve = [x for x in reference_dur_curve if x==x]
         reference_dur_curve = sorted(reference_dur_curve)
         plt.plot([100*x/len(dur_curve) for x in range(len(dur_curve))], dur_curve, label="NorCap ATCE")
         plt.plot([100*x/len(reference_dur_curve) for x in range(len(reference_dur_curve))], reference_dur_curve, label="Current method")
@@ -217,9 +322,10 @@ def bzbDurationCurves(df, reference_df,  topology, topology_map):
     
     borderLockIn = {b['name']:[] for b in topology['biddingZoneBorders']}
     for bzb in topology['biddingZoneBorders']:
-
+        
         bzb_reverse = next((b['name'] for b in topology['biddingZoneBorders'] if (b['from']==bzb['to'] and b['to']==bzb['from'] and b['type']==bzb['type'])),None)
-
+        if bzb_reverse is None:
+            print(bzb['name'])
         for idx, r in df.iterrows():
             if r[bzb['name']]["ATC"]<1 and r[bzb_reverse]["ATC"]<1:
                 if r[bzb['name']]["NTC_final"]>1 or r[bzb_reverse]["NTC_final"]>1:
@@ -420,7 +526,7 @@ if __name__=="__main__":
     
     tp_token = getTPtoken("entsoeTransparencyToken.txt")
  
-    folder = '..\\data\\2024w13\\'
+    folder = '..\\data\\[insert name of folder]'
     
     path_to_topology = '..\\topology\\data\\'
     
@@ -428,12 +534,16 @@ if __name__=="__main__":
     TP_topology_file = 'topology_entsoeTP.JSON'
     topology_map_file = 'map_entsoeTP-intradayNTC.JSON'
     
+    
     ID_topology = load_json( path_to_topology + ID_topology_file)
     TP_topology = load_json( path_to_topology + TP_topology_file)
     
     topology_map = load_json( path_to_topology + topology_map_file)
-    
+
+    print(folder)
     df = readATCEextracts(folder)
+    df = df.fillna(0)
+    
     
     plotNTCs(df, ID_topology)
     
@@ -441,6 +551,10 @@ if __name__=="__main__":
     reference_end = df["dateTime"].max()
 
     reference_df = get_id_offered_atcs(reference_start, reference_end, tp_token, TP_topology)
+    reference_df['SE3-SE4'] = reference_df['SE3_AC-SE4_AC']
+    reference_df['SE4-SE3'] = reference_df['SE4_AC-SE3_AC']
+    
+    
     reference_df.to_csv("reference_df.csv")
     # reference_df = pd.read_csv('reference_df.csv')
     upwardLockIn, downwardLockIn, biDirectionalLockIn = bzDurationCurves(df, reference_df, ID_topology, topology_map)
@@ -450,3 +564,5 @@ if __name__=="__main__":
     texfilename = makePresentation(folder, df, upwardLockIn, downwardLockIn, biDirectionalLockIn, borderLockIn, ID_topology)
     
     compileTexFile(folder, texfilename)
+    del reference_df
+    del df
