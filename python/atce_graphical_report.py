@@ -16,8 +16,8 @@ from requests.adapters import HTTPAdapter, Retry
 import xml.etree.ElementTree as ET
 
 
-# from entsoe import EntsoePandasClient as Entsoe
-# from entsoe import exceptions as ee
+from entsoe import EntsoePandasClient as Entsoe
+from entsoe import exceptions as ee
 # import datetime
 import matplotlib.pyplot as plt
 
@@ -29,7 +29,7 @@ def load_json(fileName:str):
 
 
 def query_border(bz_from, bz_to, t_start, t_end, tp_token):
-    '''
+    
     e = Entsoe(api_key=tp_token, retry_count=20, retry_delay=30)
     
     s = e.query_intraday_offered_capacity(
@@ -81,9 +81,14 @@ def query_border(bz_from, bz_to, t_start, t_end, tp_token):
         + '&periodEnd=' + periodEnd.strftime('%Y%m%d%H%M') \
         + '&Update_DateAndOrTime=' + Update_DateAndOrTime.strftime('%Y%m%d%H%M')
 
-
+        # url = 'https://web-api.tp.entsoe.eu/api?securityToken=' + tp_token \
+        # + '&DocumentType=A31&Auction.Type=A08&Out_Domain=' + outdomain \
+        # + '&In_Domain=' + indomain \
+        # + '&PeriodStart=' + periodStart.strftime('%Y%m%d%H%M') \
+        # + '&PeriodEnd=' + periodEnd.strftime('%Y%m%d%H%M') \
+        # + '&Update_DateAndOrTime=' + Update_DateAndOrTime.strftime('%Y%m%d%H%M')
         
-        
+               
         # response = requests.get(url)
         try:
             response = session.get(url)
@@ -123,7 +128,7 @@ def query_border(bz_from, bz_to, t_start, t_end, tp_token):
     s = pd.DataFrame(quantities, index=timeStamps)
 
     session.close()
-    
+    '''
     return s
 
 
@@ -239,6 +244,9 @@ def bzDurationCurves(df, reference_df, topology, topology_map):
         dur_curve = []
         dur_curve_imp = []
         dur_curve_exp = []
+        missing_reference_ob = []
+        missing_reference_ib = []
+        
         print(bz, "out: ",out_borders)
         print(bz, "in: ",in_borders)
         
@@ -255,7 +263,7 @@ def bzDurationCurves(df, reference_df, topology, topology_map):
                 downwardLockIn[bz].append(r["MTU"][0])
             if export_capacity < 1 and import_capacity < 1:
                 biDirectionalLockIn[bz].append(r["MTU"][0])
-                
+
         reference_dur_curve = []
         reference_dur_curve_exp = []
         reference_dur_curve_imp = []
@@ -264,51 +272,74 @@ def bzDurationCurves(df, reference_df, topology, topology_map):
             for ob in out_borders:
                 mapped_ob = next(( r['key'] for r in topology_map['map'] if r['value'] == ob ),None)
                 if not mapped_ob is None:
-                    ref_export_capacity += np.float64(r[mapped_ob])
+                    if mapped_ob in r:
+                        ref_export_capacity += np.float64(r[mapped_ob])
+                    else:
+                        missing_reference_ob.append(mapped_ob)
             ref_import_capacity = 0
             for ib in in_borders:
                 mapped_ib = next(( r['key'] for r in topology_map['map'] if r['value'] == ib ),None)
                 if not mapped_ib is None:
-                    ref_import_capacity += np.float64(r[mapped_ib])
+                    if mapped_ib in r:
+                        ref_import_capacity += np.float64(r[mapped_ib])
+                    else:
+                        missing_reference_ib.append(mapped_ib)    
 
             reference_dur_curve.append(ref_export_capacity + ref_import_capacity)
             reference_dur_curve_exp.append(ref_export_capacity)
             reference_dur_curve_imp.append(ref_import_capacity)
 
         dur_curve = sorted(dur_curve)
+        missing_reference_ib = set(missing_reference_ib)
+        missing_reference_ob = set(missing_reference_ob)
         
         reference_dur_curve = [x for x in reference_dur_curve if x==x]
         reference_dur_curve = sorted(reference_dur_curve)
         plt.plot([100*x/len(dur_curve) for x in range(len(dur_curve))], dur_curve, label="NorCap ATCE")
         plt.plot([100*x/len(reference_dur_curve) for x in range(len(reference_dur_curve))], reference_dur_curve, label="Current method")
-        plt.title("ATC trading space BZ: " + bz)
+        title_text = "ATC trading space BZ: " + bz
+        if len(missing_reference_ob)>0 or len(missing_reference_ib)>0:
+            title_text += " Note! Data for following borders were missing from reference data: " + ', '.join(missing_reference_ob)+ ', ' + ', '.join(missing_reference_ib)
+        plt.title(title_text, wrap=True)
         plt.xlabel("Percent of MTUs")
         plt.ylabel("ATC export + ATC import [MW]")
         plt.legend()
         plt.xlim((0,100))
-        plt.tight_layout()        
+        if not len(missing_reference_ib)>0 or not len(missing_reference_ob)>0:
+            plt.tight_layout()      
         plt.savefig(folder + "\\" + bz + "_trading_space.pdf", format="pdf")
         plt.close()
         
         plt.plot([100*x/len(dur_curve_imp) for x in range(len(dur_curve_imp))], sorted(dur_curve_imp), label="NorCap ATCE")
         plt.plot([100*x/len(reference_dur_curve_imp) for x in range(len(reference_dur_curve_imp))], sorted(reference_dur_curve_imp), label="Current method")
-        plt.title("Importing ATC trading space BZ: " + bz)
+        title_text = "Importing ATC trading space BZ: " + bz
+        
+        if len(missing_reference_ib)>0:
+            title_text += " Note! Data for following borders were missing from reference data: " + ', '.join(missing_reference_ib)
+        print(title_text)
+        plt.title(title_text, wrap=True)
         plt.xlabel("Percent of MTUs")
         plt.ylabel("ATC import [MW]")
         plt.legend()
         plt.xlim((0,100))
-        plt.tight_layout()        
+        if not len(missing_reference_ib)>0 or not len(missing_reference_ob)>0:
+            plt.tight_layout()        
         plt.savefig(folder + "\\" + bz + "_import_trading_space.pdf", format="pdf")
         plt.close()
 
         plt.plot([100*x/len(dur_curve_exp) for x in range(len(dur_curve_exp))], sorted(dur_curve_exp), label="NorCap ATCE")
         plt.plot([100*x/len(reference_dur_curve_exp) for x in range(len(reference_dur_curve_exp))], sorted(reference_dur_curve_exp), label="Current method")
-        plt.title("Exporting ATC trading space BZ: " + bz)
+        title_text = "Exporting ATC trading space BZ: " + bz
+
+        if len(missing_reference_ob)>0:
+            title_text += " Note! Data for following borders were missing from reference data: " + ', '.join(missing_reference_ob)
+        plt.title(title_text, wrap=True)
         plt.xlabel("Percent of MTUs")
         plt.ylabel("ATC export [MW]")
         plt.legend()
         plt.xlim((0,100))
-        plt.tight_layout()        
+        if not len(missing_reference_ib)>0 or not len(missing_reference_ob)>0:
+            plt.tight_layout()        
         plt.savefig(folder + "\\" + bz + "_export_trading_space.pdf", format="pdf")
         plt.close()
     
@@ -327,9 +358,10 @@ def bzbDurationCurves(df, reference_df,  topology, topology_map):
         if bzb_reverse is None:
             print(bzb['name'])
         for idx, r in df.iterrows():
-            if r[bzb['name']]["ATC"]<1 and r[bzb_reverse]["ATC"]<1:
-                if r[bzb['name']]["NTC_final"]>1 or r[bzb_reverse]["NTC_final"]>1:
-                    borderLockIn[bzb['name']].append(r["MTU"][0])
+            if bzb['name'] in r and bzb_reverse in r:
+                if r[bzb['name']]["ATC"]<1 and r[bzb_reverse]["ATC"]<1:
+                    if r[bzb['name']]["NTC_final"]>1 or r[bzb_reverse]["NTC_final"]>1:
+                        borderLockIn[bzb['name']].append(r["MTU"][0])
 
         
         plt.title(bzb['name'])
@@ -526,7 +558,7 @@ if __name__=="__main__":
     
     tp_token = getTPtoken("entsoeTransparencyToken.txt")
  
-    folder = '..\\data\\[insert name of folder]'
+    folder = '..\\data\\2024w13'
     
     path_to_topology = '..\\topology\\data\\'
     
@@ -551,6 +583,8 @@ if __name__=="__main__":
     reference_end = df["dateTime"].max()
 
     reference_df = get_id_offered_atcs(reference_start, reference_end, tp_token, TP_topology)
+    
+    # Note: TP contains one listing of capacities SE3-SE4, which corresponds to eics of SE3_AC-SE4_AC in topology. Translation is done to refer capacities to the lineset SE3-SE4
     reference_df['SE3-SE4'] = reference_df['SE3_AC-SE4_AC']
     reference_df['SE4-SE3'] = reference_df['SE4_AC-SE3_AC']
     
