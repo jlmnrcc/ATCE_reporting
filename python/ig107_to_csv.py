@@ -85,7 +85,7 @@ def extract_ig107_files(files, topology, topology_map):
 
     outFileNames = []
     
-    sep = ';'
+    sep = ','
     
     for  ig107File in files:
         print("Parsing file: " + ig107File + "...")
@@ -157,6 +157,7 @@ def zipFiles(zipFileName, path, fileNames, deleteUnzipped=True):
 if __name__=="__main__":
     
     path_to_topology = '..\\topology\\data\\'
+
     topology_file_name = 'topology_ig107.JSON'
     
     topology_map_name = 'map_ig107-intradayNTC.JSON'
