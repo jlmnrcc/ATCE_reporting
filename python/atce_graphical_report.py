@@ -16,8 +16,8 @@ from requests.adapters import HTTPAdapter, Retry
 import xml.etree.ElementTree as ET
 
 
-from entsoe import EntsoePandasClient as Entsoe
-from entsoe import exceptions as ee
+# from entsoe import EntsoePandasClient as Entsoe
+# from entsoe import exceptions as ee
 # import datetime
 import matplotlib.pyplot as plt
 
@@ -29,7 +29,7 @@ def load_json(fileName:str):
 
 
 def query_border(bz_from, bz_to, t_start, t_end, tp_token):
-    
+    '''
     e = Entsoe(api_key=tp_token, retry_count=20, retry_delay=30)
     
     s = e.query_intraday_offered_capacity(
@@ -48,13 +48,12 @@ def query_border(bz_from, bz_to, t_start, t_end, tp_token):
 
     session = requests.Session()
     session.headers.update({'User-Agent': 'Mozilla/5.0'})
-
+    
     retries = Retry(
-        total=3,
-        backoff_factor=0.1,
-        status_forcelist=[502, 503, 504],
+        total=25,
         allowed_methods={'POST'},
     )
+
     session.mount('https://', HTTPAdapter(max_retries=retries))
     
     
@@ -63,6 +62,8 @@ def query_border(bz_from, bz_to, t_start, t_end, tp_token):
     outdomain = bz_from
     
     periodStart = t_start
+    
+    newTpCutOverDate = datetime(2024,5,17,0,0, tzinfo=pytz.UTC)
 
     timeStamps = []
     quantities = []
@@ -74,22 +75,24 @@ def query_border(bz_from, bz_to, t_start, t_end, tp_token):
         periodEnd = periodStart + timedelta(days=1)
         Update_DateAndOrTime = periodStart
         
-        url = 'https://web-api.tp.entsoe.eu/api?securityToken=' + tp_token \
-        + '&documentType=A31&contract_MarketAgreement.Type=A07&in_Domain=' + indomain \
-        + '&out_Domain=' + outdomain \
-        + '&auction.Type=A01&periodStart=' + periodStart.strftime('%Y%m%d%H%M') \
-        + '&periodEnd=' + periodEnd.strftime('%Y%m%d%H%M') \
-        + '&Update_DateAndOrTime=' + Update_DateAndOrTime.strftime('%Y%m%d%H%M')
+        if periodStart < newTpCutOverDate:
 
-        # url = 'https://web-api.tp.entsoe.eu/api?securityToken=' + tp_token \
-        # + '&DocumentType=A31&Auction.Type=A08&Out_Domain=' + outdomain \
-        # + '&In_Domain=' + indomain \
-        # + '&PeriodStart=' + periodStart.strftime('%Y%m%d%H%M') \
-        # + '&PeriodEnd=' + periodEnd.strftime('%Y%m%d%H%M') \
-        # + '&Update_DateAndOrTime=' + Update_DateAndOrTime.strftime('%Y%m%d%H%M')
+            url = 'https://web-api.tp.entsoe.eu/api?securityToken=' + tp_token \
+            + '&documentType=A31&contract_MarketAgreement.Type=A07&in_Domain=' + indomain \
+            + '&out_Domain=' + outdomain \
+            + '&auction.Type=A01&periodStart=' + periodStart.strftime('%Y%m%d%H%M') \
+            + '&periodEnd=' + periodEnd.strftime('%Y%m%d%H%M') #\
+            #+ '&Update_DateAndOrTime=' + Update_DateAndOrTime.strftime('%Y%m%d%H%M')
+
+        else:
+            url = 'https://web-api.tp.entsoe.eu/api?securityToken=' + tp_token \
+            + '&DocumentType=A31&Auction.Type=A08&Out_Domain=' + outdomain \
+            + '&In_Domain=' + indomain \
+            + '&PeriodStart=' + periodStart.strftime('%Y%m%d%H%M') \
+            + '&PeriodEnd=' + periodEnd.strftime('%Y%m%d%H%M') #\
+            #+ '&Update_DateAndOrTime=' + Update_DateAndOrTime.strftime('%Y%m%d%H%M')
         
                
-        # response = requests.get(url)
         try:
             response = session.get(url)
         except Exception as errMsg:
@@ -128,7 +131,7 @@ def query_border(bz_from, bz_to, t_start, t_end, tp_token):
     s = pd.DataFrame(quantities, index=timeStamps)
 
     session.close()
-    '''
+    
     return s
 
 
@@ -288,7 +291,8 @@ def bzDurationCurves(df, reference_df, topology, topology_map):
             reference_dur_curve.append(ref_export_capacity + ref_import_capacity)
             reference_dur_curve_exp.append(ref_export_capacity)
             reference_dur_curve_imp.append(ref_import_capacity)
-
+        
+        
         dur_curve = sorted(dur_curve)
         missing_reference_ib = set(missing_reference_ib)
         missing_reference_ob = set(missing_reference_ob)
@@ -558,7 +562,7 @@ if __name__=="__main__":
     
     tp_token = getTPtoken("entsoeTransparencyToken.txt")
  
-    folder = '..\\data\\2024w13'
+    folder = '..\\data\\2024w21'
     
     path_to_topology = '..\\topology\\data\\'
     
@@ -583,8 +587,9 @@ if __name__=="__main__":
     reference_end = df["dateTime"].max()
 
     reference_df = get_id_offered_atcs(reference_start, reference_end, tp_token, TP_topology)
+    reference_df = reference_df.fillna(0)
     
-    # Note: TP contains one listing of capacities SE3-SE4, which corresponds to eics of SE3_AC-SE4_AC in topology. Translation is done to refer capacities to the lineset SE3-SE4
+    ''' Note: TP contains one listing of capacities SE3-SE4, which corresponds to eics of SE3_AC-SE4_AC in topology. Translation is done to refer capacities to the lineset SE3-SE4'''
     reference_df['SE3-SE4'] = reference_df['SE3_AC-SE4_AC']
     reference_df['SE4-SE3'] = reference_df['SE4_AC-SE3_AC']
     
