@@ -3,8 +3,10 @@
 - Plot ATCs on bidding zone borders
 - Make duration curves of ATCEs and actial ID offered capacities
 
+Note: to pull topology submodule:
+>git submodule update --recursive --remote<
+
 ## ToDo
-	- generic treatment of market topologies
 	- library of common functions
 	
-	Hej Noa
+	
