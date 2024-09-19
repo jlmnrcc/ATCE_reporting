@@ -38,41 +38,45 @@ def parseTimeSeriesFromCapacityDocument(ig107File, topology):
     time_series = root.findall(ns["xmlns"] + "TimeSeries")
     ts_list = []
     for t in time_series:
+        skipTimeSeries=False
         p = t.find(ns["xmlns"] + "Period")
         fromBZ = next(( b['shortName'] for b in topology['biddingZones'] if b['eic'] == t.find(ns["xmlns"] + "out_Domain.mRID").text ), None)
         if fromBZ is None:
             print('From bidding zone not found in topology: ' + t.find(ns["xmlns"] + "out_Domain.mRID").text)
+            skipTimeSeries=True
 
         toBZ =  next(( b['shortName'] for b in topology['biddingZones'] if b['eic'] == t.find(ns["xmlns"] + "in_Domain.mRID").text ), None)
         if toBZ is None:
-            print('From bidding zone not found in topology: ' + t.find(ns["xmlns"] + "in_Domain.mRID").text)
+            print('To bidding zone not found in topology: ' + t.find(ns["xmlns"] + "in_Domain.mRID").text)
+            skipTimeSeries=True
             
-        border_direction = next((b['name'] for b in topology['biddingZoneBorders'] if b['from']==fromBZ and b['to']==toBZ),None)
-        if border_direction is None:
-            print("bidding zone border found from " + fromBZ + " to " + toBZ + ".")
-        
-        ts = {"borderDirection": border_direction, # "borderDirection": code2eic[t.find(ns["xmlns"] + "out_Domain.mRID").text] + "-" + code2eic[t.find(ns["xmlns"] + "in_Domain.mRID").text],
-            "BusinessType":t.find(ns["xmlns"] + "businessType").text,
-            "InDomain":t.find(ns["xmlns"] + "in_Domain.mRID").text,
-            "OutDomain":t.find(ns["xmlns"] + "out_Domain.mRID").text,
-            "period.timeinterval.start": datetime.strptime(p.find(ns["xmlns"]+"timeInterval").find(ns["xmlns"]+"start").text, "%Y-%m-%dT%H:%MZ"),
-            "period.timeinterval.end": datetime.strptime(p.find(ns["xmlns"]+"timeInterval").find(ns["xmlns"]+"end").text, "%Y-%m-%dT%H:%MZ"),
-            "period.resolution":p.find(ns["xmlns"] + "resolution").text}
+        if not skipTimeSeries:
+            border_direction = next((b['name'] for b in topology['biddingZoneBorders'] if b['from']==fromBZ and b['to']==toBZ),None)
+            if border_direction is None:
+                print("No bidding zone border found in topology from " + fromBZ + " to " + toBZ + ".")
             
-        curvePoints = []
-        CNTC_backup = []
-        for cp in p.findall(ns["xmlns"] + "Point"):
-            point_datetime = ts["period.timeinterval.start"] + (int(cp.find(ns["xmlns"]+"position").text) - 1)*time_resolution[ts["period.resolution"]]
-            curvePoints.append((point_datetime,float(cp.find(ns["xmlns"]+"quantity").text)))
-            try:
-                reason = cp.find(ns["xmlns"]+"Reason").find(ns["xmlns"]+"text").text
-                CNTC_backup.append((point_datetime, "BACKUP" in reason or "FALLBACK" in reason))
-            except Exception as errmsg:
-                CNTC_backup.append((point_datetime,False))
-        
-        ts["curve"] = curvePoints
-        ts["backup"] = CNTC_backup
-        ts_list.append(ts)
+            ts = {"borderDirection": border_direction, 
+                "BusinessType":t.find(ns["xmlns"] + "businessType").text,
+                "InDomain":t.find(ns["xmlns"] + "in_Domain.mRID").text,
+                "OutDomain":t.find(ns["xmlns"] + "out_Domain.mRID").text,
+                "period.timeinterval.start": datetime.strptime(p.find(ns["xmlns"]+"timeInterval").find(ns["xmlns"]+"start").text, "%Y-%m-%dT%H:%MZ"),
+                "period.timeinterval.end": datetime.strptime(p.find(ns["xmlns"]+"timeInterval").find(ns["xmlns"]+"end").text, "%Y-%m-%dT%H:%MZ"),
+                "period.resolution":p.find(ns["xmlns"] + "resolution").text}
+                
+            curvePoints = []
+            CNTC_backup = []
+            for cp in p.findall(ns["xmlns"] + "Point"):
+                point_datetime = ts["period.timeinterval.start"] + (int(cp.find(ns["xmlns"]+"position").text) - 1)*time_resolution[ts["period.resolution"]]
+                curvePoints.append((point_datetime,float(cp.find(ns["xmlns"]+"quantity").text)))
+                try:
+                    reason = cp.find(ns["xmlns"]+"Reason").find(ns["xmlns"]+"text").text
+                    CNTC_backup.append((point_datetime, "BACKUP" in reason or "FALLBACK" in reason))
+                except Exception as errmsg:
+                    CNTC_backup.append((point_datetime,False))
+            
+            ts["curve"] = curvePoints
+            ts["backup"] = CNTC_backup
+            ts_list.append(ts)
         
     return ts_list
     
@@ -162,7 +166,7 @@ if __name__=="__main__":
     
     topology_map_name = 'map_ig107-intradayNTC.JSON'
     
-    fDir = "..\\data\\2024w13\\"
+    fDir = "..\\data\\"
         
     ntc_topology = load_json(path_to_topology + topology_file_name)
     topology_map = load_json(path_to_topology + topology_map_name)
